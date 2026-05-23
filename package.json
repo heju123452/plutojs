@@ -1,0 +1,30 @@
+{
+  "name": "plutojs",
+  "version": "2.3.30",
+  "description": "plutojs",
+  "main": "dist/src/js/main.js",
+  "types": "dist/src/js/main.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heju123/plutojs.git"
+  },
+  "keywords": [
+    "plutojs"
+  ],
+  "author": "heju",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/heju123/plutojs/issues"
+  },
+  "homepage": "https://github.com/heju123/plutojs#readme",
+  "devDependencies": {
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "publish": "node scripts/publish.js",
+    "dev": "webpack-dev-server --config ./webpack.config.js --mode development"
+  },
+  "publishConfig": {
+    "registry": "http://172.16.254.105:8081/repository/npm_hosted/"
+  }
+}

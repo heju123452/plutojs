@@ -1,0 +1,347 @@
+/**
+ * 二进制容器
+ * @param {String} base64Str
+ */
+const getUint8Arr = base64Str => {
+    // 截取base64的数据内容
+    let arr = base64Str.split(','),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]),
+        // 获取解码后的二进制数据的长度，用于后面创建二进制数据容器
+        n = bstr.length,
+        // 创建一个Uint8Array类型的数组以存放二进制数据
+        u8arr = new Uint8Array(n)
+    // 将二进制数据存入Uint8Array类型的数组中
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+    }
+    return { u8arr, mime }
+}
+
+/**
+ * Created by heju on 2017/7/14.
+ */
+let commonUtil : any = {
+    asyncLoadedScripts : {},
+    asyncLoadedScriptsCallbackQueue: {},
+    getScriptDomFromUrl : (url : string)=>{
+        let dom;
+        if (/.+\.js$/.test(url))
+        {
+            dom = document.createElement("SCRIPT");
+            dom.setAttribute("type", "text/javascript");
+            dom.setAttribute("src", url);
+        }
+        else if(/.+\.css$/.test(url))
+        {
+            dom = document.createElement('link');
+            dom.href = url;
+            dom.type = "text/css";
+            dom.rel="stylesheet";
+        }
+        return dom;
+    },
+    /**
+     * 异步加载script或css
+     */
+    asyncLoadScript: (url : string, callback : Function) => {
+        let $this = commonUtil;
+        if ($this.asyncLoadedScripts[url] != undefined)//已加载script标签
+        {
+            if (callback && typeof(callback) == "function") {
+                if ($this.asyncLoadedScripts[url] == 0)//未执行首个script标签的回调
+                {
+                    if (!$this.asyncLoadedScriptsCallbackQueue[url]) {
+                        $this.asyncLoadedScriptsCallbackQueue[url] = [];
+                    }
+                    $this.asyncLoadedScriptsCallbackQueue[url].push(callback);
+                }
+                else {
+                    callback.apply($this, []);
+                }
+            }
+            return;
+        }
+        $this.asyncLoadedScripts[url] = 0;
+        let scriptDom = $this.getScriptDomFromUrl(url);
+        if (scriptDom.readyState) {
+            scriptDom.onreadystatechange = function () {
+                if (scriptDom.readyState == "loaded" || scriptDom.readyState == "complete") {
+                    scriptDom.onreadystatechange = null;
+                    $this.asyncLoadedScripts[url] = 1;
+                    if (callback && typeof(callback) == "function") {
+                        callback.apply($this, []);
+                    }
+                    if ($this.asyncLoadedScriptsCallbackQueue[url]) {
+                        for (let i = 0, j = $this.asyncLoadedScriptsCallbackQueue[url].length; i < j; i++) {
+                            $this.asyncLoadedScriptsCallbackQueue[url][i].apply($this, []);
+                        }
+                        $this.asyncLoadedScriptsCallbackQueue[url] = undefined;
+                    }
+                }
+            }
+        }
+        else {
+            scriptDom.onload = function () {
+                $this.asyncLoadedScripts[url] = 1;
+                if (callback && typeof(callback) == "function") {
+                    callback.apply($this, []);
+                }
+                if ($this.asyncLoadedScriptsCallbackQueue[url]) {
+                    for (let i = 0, j = $this.asyncLoadedScriptsCallbackQueue[url].length; i < j; i++) {
+                        $this.asyncLoadedScriptsCallbackQueue[url][i].apply($this, []);
+                    }
+                    $this.asyncLoadedScriptsCallbackQueue[url] = undefined;
+                }
+            }
+        }
+        document.getElementsByTagName('head')[0].appendChild(scriptDom);
+    },
+    getFileNameFromUrl : (url : string) : string =>{
+        return url.substring(url.lastIndexOf("/") + 1, url.length);
+    },
+    isIncludeScript : (name : string) : boolean =>{
+        var js = /js$/i.test(name);
+        var es=document.getElementsByTagName(js?'script':'link');
+        for(var i=0;i<es.length;i++)
+            if(es[i][js?'src':'href'].indexOf(name)!=-1)return true;
+        return false;
+    },
+    loadScripts : (scriptArr : Array<string>)=>{
+        if (scriptArr instanceof Array)
+        {
+            var promises = [];
+            for (var i = 0; i < scriptArr.length; i++)
+            {
+                promises.push(new Promise(function(resolve, reject){
+                    if (commonUtil.isIncludeScript(commonUtil.getFileNameFromUrl(scriptArr[i])))
+                    {
+                        resolve(undefined);
+                    }
+                    else
+                    {
+                        commonUtil.asyncLoadScript(scriptArr[i], function(){
+                            resolve(undefined);
+                        });
+                    }
+                }));
+            }
+            return Promise.all(promises);
+        }
+        else
+        {
+            return new Promise(function(resolve, reject){
+                resolve(undefined);
+            });
+        }
+    },
+    concatList : (list : Array<any>, addList : Array<any>)=>{
+        addList.forEach((item)=>{
+            list.push(item);
+        });
+    },
+    isEmptyObj : (obj : Object)=>{
+        for (let key in obj)
+        {
+            return false;
+        }
+        return true;
+    },
+    /**
+     * 复制对象
+     * @param obj 待复制的对象
+     * @param dest 复制到目标对象
+     * @param override 是否覆盖属性，false:如果dest存在相同不为空的属性，则不做复制操作，true:只复制obj不为空的属性
+     * @param deep 是否深度复制
+     * @return 复制的目标对象
+     */
+    copyObject : (obj : Object, dest : Object, override? : boolean, deep? : boolean)=>{
+        if (override == undefined)
+        {
+            override = true;
+        }
+        let result = dest || {};
+        for (let key in obj)
+        {
+            if (!override && result[key])
+            {
+                continue;
+            }
+            else
+            {
+                if (!obj[key] && obj[key] != 0)
+                {
+                    continue;
+                }
+                if (deep && typeof(obj[key]) === "object" && !(obj[key] instanceof Array))
+                {
+                    result[key] = commonUtil.copyObject(obj[key], undefined, override, deep);
+                }
+                else if (deep && typeof(obj[key]) === "object" && obj[key] instanceof Array)
+                {
+                    result[key] = commonUtil.copyArray(obj[key], undefined, deep);
+                }
+                else
+                {
+                    result[key] = obj[key];
+                }
+            }
+        }
+        return result;
+    },
+    /**
+     * 复制数组
+     * @param obj 待复制的数组
+     * @param dest 复制到目标数组
+     * @param deep 是否深度复制
+     * @return 复制的目标对象
+     */
+    copyArray : (obj : Array<any>, dest : Array<any>, deep : boolean)=>{
+        let result = dest || [];
+        obj.forEach((item)=>{
+            if (deep && typeof(item) === "object" && !(item instanceof Array))
+            {
+                result.push(commonUtil.copyObject(item, undefined, true, deep));
+            }
+            else if (deep && typeof(item) === "object" && item instanceof Array)
+            {
+                result.push(commonUtil.copyArray(item, undefined, deep));
+            }
+            else
+            {
+                result.push(item);
+            }
+        });
+        return result;
+    },
+    /**
+     * 获取数组值
+     * @param arr
+     * @param object
+     * @param key，如果不传，则比较object整个
+     */
+    getArray: function (arr, object, key) {
+        if (arr == undefined || object == undefined) {
+            return undefined;
+        }
+        var item;
+        for (var i = 0, j = arr.length; i < j; i++) {
+            item = arr[i];
+            if (!key)
+            {
+                if (item === object) {
+                    return item;
+                }
+            }
+            else
+            {
+                if (item[key] === object) {
+                    return item;
+                }
+            }
+        }
+        return undefined;
+    },
+    /** 根据后缀获取时间(单位：秒) */
+    getTimeSecForSuffix : (time : any)=>{
+        if (time.toString().lastIndexOf("ms") > -1)
+        {
+            time = time.substring(0, time.lastIndexOf("ms"));
+            time = parseFloat(time) / 1000;
+        }
+        else if (time.toString().lastIndexOf("s") > -1)
+        {
+            time = time.substring(0, time.lastIndexOf("s"));
+            time = parseFloat(time);
+        }
+        return time;
+    },
+    /**
+     * 删除多余属性
+     *
+     * @param obj 要删除属性的对象
+     * @param compareObj 比较的对象，如果obj中的某属性在compareObj对象中不存在，则删除
+     * @param ignoreAttrs 这些属性除外，传入字符串，逗号分割
+     */
+    removeExtraAttr : (obj : Object, compareObj : Object, ignoreAttrs : Array<any>)=>{
+        for (let key in obj)
+        {
+            if (ignoreAttrs.indexOf(key) > -1)
+            {
+                continue;
+            }
+            if (!compareObj.hasOwnProperty(key))
+            {
+                delete obj[key];
+            }
+        }
+    },
+    /**
+     * 弹出提示框
+     *
+     * @param msg
+     */
+    popMessageTooltip : (msg : string, opts : any)=>{
+        alert(msg);
+    },
+    /** 弹出确认框 */
+    popConfirm : (msg : string)=>{
+        return new Promise((resolve, reject)=> {
+            var ret = window.confirm(msg);
+            if (ret) {
+                resolve(undefined);
+            }
+            else {
+                reject();
+            }
+        });
+    },
+    /**
+     * 创建图片dom
+     */
+    createImageDom : (url : string)=>{
+        return new Promise((resolve, reject)=>{
+            let img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function(){
+                resolve(this);
+            };
+            img.src = url;
+        });
+    },
+    getBrowserName : () => {
+        var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+        var isOpera = userAgent.indexOf("Opera") > -1;
+        if (isOpera) {
+            return "Opera"
+        } //判断是否Opera浏览器
+        else if (userAgent.indexOf("Firefox") > -1) {
+            return "Firefox";
+        } //判断是否Firefox浏览器
+        else if (userAgent.indexOf("Chrome") > -1){
+            return "Chrome";
+        }
+        else if (userAgent.indexOf("Safari") > -1) {
+            return "Safari";
+        } //判断是否Safari浏览器
+        else if (userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1 && !isOpera) {
+            return "IE";
+        } //判断是否IE浏览器
+    },
+    /** 将指定区域转化为图片地址 */
+    transform2Base64: (oirCanvas: HTMLCanvasElement, left: number, top: number, width: number, height: number): string=>{
+        let newCanvas = document.createElement('canvas');
+		let newCtx = newCanvas.getContext('2d');
+		newCanvas.width = width;
+		newCanvas.height = height;
+		newCtx.drawImage(oirCanvas, left, top, width, height, 0, 0, newCanvas.width, newCanvas.height);
+        let imgUrl = newCanvas.toDataURL("image/jpeg", 1.0);
+        return imgUrl;
+    },
+    /** 将base64转为File */
+    getFileByBase64: (base64: string, filename: string)=>{
+        let uint8 = getUint8Arr(base64)
+        return new File([uint8.u8arr], filename, { type: uint8.mime })
+    }
+};
+export default commonUtil;

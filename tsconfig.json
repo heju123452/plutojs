@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "dist",
+    "module": "esnext",
+    "target": "es5",
+    "lib": ["es6", "dom"],
+    "allowJs": true,
+    "sourceMap": true,
+    "declaration": true,
+    "rootDirs": ["src"]
+  },
+  "files": [
+    "src/js/main.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test"
+  ]
+}
