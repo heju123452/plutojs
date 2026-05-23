@@ -125,6 +125,14 @@ export default {
                                     events : {
                                         "click" : "goLink('posterEdit')"
                                     }
+                                }),
+                                getLinkView("游戏体验", {
+                                    style : {
+                                        fontSize : "18px"
+                                    },
+                                    events : {
+                                        "click" : "goLink('gameExperience')"
+                                    }
                                 })
                             ]
                         }
